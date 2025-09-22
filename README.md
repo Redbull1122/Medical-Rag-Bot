@@ -16,7 +16,7 @@ A Retrieval-Augmented Generation (RAG) chatbot built with LangChain, Pinecone, L
 ```
 medical-rag-bot/
 ├── config/                         # Configuration files
-│   ├── __init__.py                 # Ініціалізація модуля
+│   ├── __init__.py                 # Module initialization
 │   └── settings.py                 # Project settings (API keys, URLs)
 ├── src/                            # Main program code
 │   ├── api/                        # API integration
