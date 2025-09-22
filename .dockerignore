@@ -1,0 +1,11 @@
+.env
+.git
+__pycache__
+*.pyc
+.pytest_cache
+logs.txt
+.DS_Store
+node_modules
+README.md
+data
+vectorstore

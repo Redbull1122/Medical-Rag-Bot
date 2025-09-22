@@ -1,0 +1,11 @@
+streamlit
+pinecone
+langfuse
+langgraph
+langchain
+requests
+python-dotenv
+langchain-google-genai
+langchain-ollama
+nltk
+sentence-transformers
