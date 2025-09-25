@@ -3,7 +3,7 @@ from src.utils.text_processing import normalize_text, extract_key_sentences
 from src.core.vector_store import upsert_embeddings, search_embeddings, format_search_results
 from config.settings import Config
 from langfuse import Langfuse
-from langfuse import observe
+from langfuse import observe as lf_observe
 from sentence_transformers import SentenceTransformer
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.graph import add_messages, StateGraph, END
@@ -14,14 +14,30 @@ from langchain.schema import Document
 import uuid
 
 
-langfuse = Langfuse(
-    secret_key=Config.LANGFUSE_SECRET_KEY,
-    public_key=Config.LANGFUSE_PUBLIC_KEY,
-    host=Config.LANGFUSE_HOST
-)
+def _noop_observe(*args, **kwargs):
+    def decorator(fn):
+        return fn
+    return decorator
+
+# Initialize Langfuse only if all config values are present and reachable
+USE_LANGFUSE = bool(Config.LANGFUSE_SECRET_KEY and Config.LANGFUSE_PUBLIC_KEY and Config.LANGFUSE_HOST)
+if USE_LANGFUSE:
+    try:
+        langfuse = Langfuse(
+            secret_key=Config.LANGFUSE_SECRET_KEY,
+            public_key=Config.LANGFUSE_PUBLIC_KEY,
+            host=Config.LANGFUSE_HOST
+        )
+        observe = lf_observe
+    except Exception:
+        langfuse = None
+        observe = _noop_observe
+else:
+    langfuse = None
+    observe = _noop_observe
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
-llm = ChatOllama(model="llama3.1", temperature=0.6)
+llm = ChatOllama(model=Config.OLLAMA_MODEL, temperature=0.6, base_url=Config.OLLAMA_BASE_URL)
 
 class BasicChatState(TypedDict):
     messages: Annotated[list, add_messages]
@@ -105,4 +121,11 @@ async def query_pipeline(user_query: str, thread_id: str = "default_conversation
         
     except Exception as e:
         print(f"Error in query_pipeline: {e}")
+        # Provide a more actionable message for connection issues
+        msg = str(e)
+        if "Connection refused" in msg or "Errno 111" in msg:
+            return (
+                "Connection error. Check that external services are reachable: "
+                "- OLLAMA_BASE_URL (Ollama), - PINECONE_API_KEY/index, - LANGFUSE_HOST (if enabled)."
+            )
         return f"Sorry, an error occurred while processing your request: {e}"

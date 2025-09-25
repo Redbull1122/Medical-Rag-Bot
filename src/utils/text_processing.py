@@ -1,23 +1,5 @@
 import re
 from typing import List
-import nltk
-import ssl
-
-# SSL context for NLTK downloads
-try:
-    _create_unverified_https_context = ssl._create_unverified_context
-except AttributeError:
-    pass
-else:
-    ssl._create_default_https_context = _create_unverified_https_context
-
-# Download NLTK data
-try:
-    nltk.download("wordnet", quiet=True)
-except Exception as e:
-    print(f"Warning: Could not download wordnet: {e}")
-
-from nltk.tokenize import sent_tokenize
 
 
 def normalize_text(text: str) -> str:
@@ -31,14 +13,32 @@ def normalize_text(text: str) -> str:
     return text
 
 
+def _split_sentences(text: str) -> List[str]:
+    """
+    Lightweight sentence splitter without external deps.
+    Splits on ., !, ? followed by whitespace. Keeps short abbreviations together heuristically.
+    """
+    if not text:
+        return []
+
+    # Protect common abbreviations by temporarily replacing periods
+    abbreviations = [
+        r"e\.g\.", r"i\.e\.", r"mr\.", r"mrs\.", r"dr\.", r"vs\.", r"prof\.", r"inc\.", r"etc\."
+    ]
+    placeholder = "<DOT>"
+    protected = text
+    for abbr in abbreviations:
+        protected = re.sub(abbr, lambda m: m.group(0).replace('.', placeholder), protected, flags=re.IGNORECASE)
+
+    # Split on sentence boundaries
+    parts = re.split(r"(?<=[.!?])\s+", protected)
+    sentences = [p.replace(placeholder, ".").strip() for p in parts if p.strip()]
+    return sentences
+
+
 def extract_key_sentences(text: str, max_sentences: int = 3) -> List[str]:
     """
-    Extracts key sentences from the text.
+    Extracts up to max_sentences sentences using a lightweight splitter.
     """
-    try:
-        sentences = sent_tokenize(text)
-        return sentences[:max_sentences]
-    except Exception as e:
-        print(f"Warning: Could not tokenize sentences: {e}")
-        # Fallback: просто розділяємо по крапках
-        return text.split('.')[:max_sentences]
+    sentences = _split_sentences(text)
+    return sentences[:max_sentences]

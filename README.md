@@ -76,9 +76,33 @@ streamlit run main.py
 
 ## Docker
 
+### Quick Start
 ```bash
+./start.sh
+```
+
+### Manual Docker Commands
+```bash
+# Build the image
 docker build -t medical-rag-bot .
+
+# Run the container
 docker run --rm -p 8501:8501 --env-file .env medical-rag-bot
+```
+
+### Access the Application
+- Open your browser and go to: **http://localhost:8501**
+- First, enter a medical topic (e.g., "diabetes", "cancer", "flu")
+- Click "Download data" to load medical information
+- Then ask questions about the selected topic
+
+### Stop the Application
+```bash
+# Stop all running containers
+docker stop $(docker ps -q)
+
+# Or stop specific container
+docker stop <container_id>
 ```
 
 

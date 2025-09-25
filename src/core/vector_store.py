@@ -3,25 +3,29 @@ from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
 import hashlib
 
-#Initialize the Pinecone client with the API key
-pc = Pinecone(api_key=Config.PINECONE_API_KEY)
+# Initialize the Pinecone client with the API key (only if available)
+pc = None
+if Config.PINECONE_API_KEY:
+    pc = Pinecone(api_key=Config.PINECONE_API_KEY)
 
 #Downloading the model for building embeddings
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 index_name = Config.PINECONE_INDEX_NAME
-if not pc.has_index(index_name):
-    pc.create_index_for_model(
-        name=index_name,
-        cloud="aws",
-        region="us-east-1",
-        embed={
-            "model": "all-MiniLM-L6-v2",
-            "field_map": {"text": "chunk_text"}
-        }
-    )
+dense_index = None
 
-dense_index = pc.Index(index_name)
+if pc:
+    if not pc.has_index(index_name):
+        pc.create_index_for_model(
+            name=index_name,
+            cloud="aws",
+            region="us-east-1",
+            embed={
+                "model": "all-MiniLM-L6-v2",
+                "field_map": {"text": "chunk_text"}
+            }
+        )
+    dense_index = pc.Index(index_name)
 
 
 
@@ -33,6 +37,10 @@ def upsert_embeddings(texts, metadata_list=None, vectors=None, ids=None):
     vectors: list of pre-computed vectors (optional, if not provided will generate them)
     upsert result
     """
+    if not dense_index:
+        print("Warning: Pinecone not configured. Skipping upsert_embeddings.")
+        return None
+        
     records = []
     for i, text in enumerate(texts):
         # Use the ready vector if provided, otherwise generate it.
@@ -54,13 +62,17 @@ def upsert_embeddings(texts, metadata_list=None, vectors=None, ids=None):
         })
     return dense_index.upsert(namespace="medical-bot", vectors=records)
 
-def search_embeddings(query, top_k=5):
+def search_embeddings(query, top_k=10):
     """
     Performs a search for relevant documents in Pinecone.
     query: user query (text)
     top_k: number of most relevant results
     search results with metadata
     """
+    if not dense_index:
+        print("Warning: Pinecone not configured. Returning empty search results.")
+        return {"matches": []}
+        
     vector = model.encode(query).tolist()
     results = dense_index.query(vector=vector, top_k=top_k, include_metadata=True)
     return results
